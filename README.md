@@ -33,4 +33,4 @@ Enter any competitor + your product. The agent:
 
 ## Author
 Shivangi Saxena — AI Product Manager
-[LinkedIn](YOUR_LINKEDIN_URL) | [Portfolio](https://shivangi-saxena.vercel.app)
+[LinkedIn] https://www.linkedin.com/in/saxenashivangi2/ | [Portfolio](https://shivangi-saxena.vercel.app)
