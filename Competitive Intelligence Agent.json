@@ -1,0 +1,299 @@
+{
+  "name": "Competitive Intelligence Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": " Competitive Intelligence Agent",
+        "formDescription": "Enter a competitor to analyze and get a PM brief",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Competitor Name",
+              "placeholder": "e.g. Retell AI",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Your Product",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "6a5b7cac-c403-4581-b66b-8e57c7e92616",
+      "name": "On form submission",
+      "webhookId": "ccc1c09c-1abe-427b-af5d-cd6e6ad06b65"
+    },
+    {
+      "parameters": {
+        "url": "=https://hn.algolia.com/api/v1/search?query={{ $json[\"Competitor Name\"] }}&tags=comment&hitsPerPage=10",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "797f1d35-6f22-4514-95c3-d2b26472192b",
+      "name": "HN Search"
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/search/issues?q=bland+ai&sort=reactions&order=desc",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "8529eee6-3429-448e-a3bb-14b5f8e70c30",
+      "name": "Github issues"
+    },
+    {
+      "parameters": {
+        "url": "https://hn.algolia.com/api/v1/search?query=Bland+AI&tags=story&hitsPerPage=10",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "9e926faf-ff6a-4c76-b395-ec719786bf8f",
+      "name": "HN Stories"
+    },
+    {
+      "parameters": {
+        "jsCode": "const hnComments = $('HN Search').all().map(item => \n  item.json.hits?.map(h => h.comment_text || h.title || '').join(' ') || ''\n).join(' ').slice(0, 2000);\n\nconst hnStories = $('HN Stories').all().map(item =>\n  item.json.hits?.map(h => h.title || '').join(' ') || ''\n).join(' ').slice(0, 1000);\n\nconst githubIssues = $('Github issues').all().map(item =>\n  item.json.items?.map(i => i.title + ': ' + (i.body || '')).join(' ') || ''\n).join(' ').slice(0, 1000);\n\nconst competitor = $('On form submission').first().json['Competitor Name'];\nconst yourProduct = $('On form submission').first().json['Your Product'];\n\nconst prompt = `You are a senior Product Manager at ${yourProduct}.\n\nAnalyze this real user data about ${competitor} and produce a strategic PM brief for ${yourProduct}.\n\nHN Discussions: ${hnComments}\nHN Stories: ${hnStories}\nGitHub Issues: ${githubIssues}\n\nProduce the following:\n\n1. HOW USERS PERCEIVE ${competitor}\n- Strengths users mention\n- Complaints and pain points\n- Gaps in their product\n\n2. TOP 3 MARKET GAPS NOBODY IS SOLVING\n- Be specific, not generic\n\n3. WHAT ${yourProduct} SHOULD BUILD IN THE NEXT 90 DAYS\n- Priority 1 (Days 1-30)\n- Priority 2 (Days 30-60)\n- Priority 3 (Days 60-90)\n\n4. MOST UNDERSERVED CUSTOMER SEGMENT\n- Who they are\n- Why nobody is serving them\n- What ${yourProduct} should offer them\n\nBe specific. No fluff. Every recommendation must reference actual signals from the data.`;\n\nreturn [{\n  json: {\n    competitor,\n    yourProduct,\n    prompt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "ecbbc8bf-5c78-4cc5-9939-ae957b47b67a",
+      "name": "Aggregate Data"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{ $json.prompt }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "6238dd12-e545-4d90-9f50-a2dc5700065b",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-6",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.4,
+      "position": [
+        1040,
+        240
+      ],
+      "id": "ff9decee-1531-44c9-bb8c-323404bcd60e",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "lAVzUk64BYtOuaBt",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "=Your AI Competitive Brief",
+        "completionMessage": "=={{ $json.text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1392,
+        0
+      ],
+      "id": "7b6eb927-02b6-4ee7-9f72-f1e93d4f1711",
+      "name": "Form",
+      "webhookId": "04547373-681c-4c0b-9aab-fc8817f1c7f8"
+    },
+    {
+      "parameters": {
+        "content": "User input",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16,
+        -48
+      ],
+      "typeVersion": 1,
+      "id": "961bfca5-f3af-40c9-b07f-5653baaae724",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "data to claude",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        816,
+        -48
+      ],
+      "typeVersion": 1,
+      "id": "dfa38125-5ee4-407a-91f8-1bcfe613b2ef",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "           Agent pull real discussions",
+        "height": 96,
+        "width": 566
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        272,
+        160
+      ],
+      "typeVersion": 1,
+      "id": "a3d9d9f3-99e0-4c75-bd77-3d76e4b566a5",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "PM brief",
+        "height": 112,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1072,
+        -80
+      ],
+      "typeVersion": 1,
+      "id": "f0ab58f7-9aa1-4a19-8d78-58e7958b0aff",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HN Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HN Search": {
+      "main": [
+        [
+          {
+            "node": "HN Stories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HN Stories": {
+      "main": [
+        [
+          {
+            "node": "Github issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Github issues": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Data": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7cd04605-82bf-4aea-8d42-9065bf8d05b6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8e0b4b2e5c61bdc1dd2f92d577345a10ab36d145a58e73dc3503183146c6321b"
+  },
+  "id": "IRwDj4M6pMGdE6ZC",
+  "tags": []
+}
